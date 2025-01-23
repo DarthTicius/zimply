@@ -1,0 +1,22 @@
+{
+  "name": "dusan/zimply",
+  "description": "zimply backend",
+  "license": "MIT",
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=8.0",
+    "vlucas/phpdotenv": "^5.5"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "app/"
+    },
+    "files": [
+      "config/config.php"
+    ]
+  },
+  "scripts": {
+    "test-connection": "php testConnection.php",
+    "start": "php -S localhost:4000 -t public"
+  }
+}
