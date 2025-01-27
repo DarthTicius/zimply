@@ -56,7 +56,7 @@ class WebController
 		$token = $_GET['token'] ?? '';
 		if (empty($token)) {
 			$_SESSION['error'] = 'Invalid reset token';
-			header('Location: /reset-password/confirm');
+			header('Location: /reset-password');
 			exit;
 		}
 
@@ -66,6 +66,7 @@ class WebController
 			'reset_token' => $token
 		]);
 	}
+
 	public function dashboard(): void
 	{
 		$this->render('dashboard', [

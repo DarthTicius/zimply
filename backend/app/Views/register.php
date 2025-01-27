@@ -11,8 +11,8 @@
 		<div class="form-group">
 			<label for="password">Password:</label>
 			<input type="password" id="password" name="password" required
-				minlength="6">
-			<span class="">must be at least 6 length</span>
+				minlength="8">
+			<span class="">must be at least 8 length</span>
 		</div>
 
 		<div class="form-group">

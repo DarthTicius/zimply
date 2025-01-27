@@ -11,6 +11,7 @@ class AuthService
 
 	public function __construct()
 	{
+		date_default_timezone_set('Europe/Berlin'); // Ensure the time zone is set correctly
 		$this->db = Database::getInstance()->getConnection();
 	}
 
@@ -53,27 +54,20 @@ class AuthService
 			$stmt->execute([$data['email']]);
 			$user = $stmt->fetch();
 
-			if (!$user) {
+			if (!$user || !password_verify($data['password'], $user['password'])) {
 				return ['error' => 'Invalid credentials'];
 			}
 
-			if (!password_verify($data['password'], $user['password'])) {
-				return ['error' => 'Invalid credentials'];
-			}
-			if ($user) {
-				$_SESSION['user_id'] = $user['id'];
-				$_SESSION['email'] = $user['email'];
+			$_SESSION['user_id'] = $user['id'];
+			$_SESSION['email'] = $user['email'];
 
-				return [
-					'message' => 'Login successful',
-					'user' => [
-						'id' => $user['id'],
-						'email' => $user['email']
-					]
-				];
-			}
-
-			return ['error' => 'Invalid credentials'];
+			return [
+				'message' => 'Login successful',
+				'user' => [
+					'id' => $user['id'],
+					'email' => $user['email']
+				]
+			];
 		} catch (\Exception $e) {
 			return ['error' => 'Login failed'];
 		}
@@ -84,7 +78,9 @@ class AuthService
 		try {
 			$stmt = $this->db->prepare("SELECT id FROM users WHERE email = ?");
 			$stmt->execute([$data['email']]);
-			if (!$stmt->fetch()) {
+			$user = $stmt->fetch();
+
+			if (!$user) {
 				return ['message' => 'If the email exists, a reset link will be sent'];
 			}
 
@@ -92,13 +88,24 @@ class AuthService
 			$resetTokenExpiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
 			$stmt = $this->db->prepare("
-                UPDATE users 
-                SET reset_token = ?, reset_token_expiry = ? 
-                WHERE email = ?
-            ");
-			$stmt->execute([$resetToken, $resetTokenExpiry, $data['email']]);
+				UPDATE users 
+				SET reset_token = :token,
+					reset_token_expiry = :expiry 
+				WHERE email = :email
+			");
 
-			return ['message' => 'Password reset instructions sent', 'debug_token' => $resetToken];
+			$params = [
+				':token' => $resetToken,
+				':expiry' => $resetTokenExpiry,
+				':email' => $data['email']
+			];
+
+			$stmt->execute($params);
+
+			return [
+				'message' => 'Password reset instructions sent',
+				'debug_token' => $resetToken
+			];
 		} catch (\Exception $e) {
 			return ['error' => 'Password reset failed'];
 		}
@@ -106,46 +113,61 @@ class AuthService
 
 	public function resetPassword(array $data): array
 	{
-		if (empty($data['token'])) {
-			return ['error' => 'Reset token is required'];
-		}
-
-		if (strlen($data['password']) < 8) {
-			return ['error' => 'Password must be at least 8 characters'];
-		}
+		$token = $data['token'];
+		$newPassword = password_hash($data['password'], PASSWORD_BCRYPT);
 
 		try {
-			$stmt = $this->db->prepare("
-				SELECT id, email, reset_token_expiry 
-				FROM users 
-				WHERE reset_token = ? 
-				AND reset_token_expiry > CURRENT_TIMESTAMP
-			");
-			$stmt->execute([$data['token']]);
-			$user = $stmt->fetch(PDO::FETCH_ASSOC);
+			// check the token and expiry with explicit timezone handling
+			$checkStmt = $this->db->prepare("
+            SELECT 
+                reset_token,
+                reset_token_expiry,
+                UNIX_TIMESTAMP(reset_token_expiry) as expiry_ts,
+                UNIX_TIMESTAMP(NOW()) as current_ts,
+                TIMESTAMPDIFF(SECOND, NOW(), reset_token_expiry) as seconds_remaining
+            FROM users 
+            WHERE reset_token = :token
+        ");
+			$checkStmt->execute([':token' => $token]);
+			$tokenData = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-			// Log the token and user data for debugging
-			error_log('Reset token: ' . $data['token']);
-			error_log('User data: ' . print_r($user, true));
-
-			if (!$user) {
-				error_log('Invalid or expired reset token: ' . $data['token']); // Debugging log
-				return ['error' => 'Invalid or expired reset token'];
+			if (!$tokenData) {
+				return ['error' => 'No user found with the provided reset token.'];
 			}
 
-			$hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+			// check MySQL's timezone settings
+			$tzStmt = $this->db->query("SELECT @@time_zone, @@system_time_zone");
+			$tzInfo = $tzStmt->fetch(PDO::FETCH_ASSOC);
+			error_log("MySQL timezone settings: " . json_encode($tzInfo));
 
-			$stmt = $this->db->prepare("
-				UPDATE users 
-				SET password = ?, reset_token = NULL, reset_token_expiry = NULL
-				WHERE id = ? AND reset_token = ?
-			");
-			$stmt->execute([$hashedPassword, $user['id'], $data['token']]);
+			// Compare using seconds_remaining instead of timestamps
+			if ($tokenData['seconds_remaining'] <= 0) {
+				error_log("Token expired - Seconds remaining: {$tokenData['seconds_remaining']}");
+				return ['error' => 'The reset token has expired.'];
+			}
 
-			return ['message' => 'Password updated successfully'];
+			$updateStmt = $this->db->prepare("
+            UPDATE users
+            SET 
+                password = :password,
+                reset_token = NULL,
+                reset_token_expiry = NULL
+            WHERE reset_token = :token
+            AND reset_token_expiry > NOW()
+        ");
+
+			$updateStmt->execute([
+				':password' => $newPassword,
+				':token' => $token
+			]);
+
+			if ($updateStmt->rowCount() === 0) {
+				return ['error' => 'Failed to update password. Please try again.'];
+			}
+
+			return ['success' => true];
 		} catch (\Exception $e) {
-			error_log('Password reset failed: ' . $e->getMessage()); // Debugging log
-			return ['error' => 'Password reset failed'];
+			return ['error' => 'Password reset failed: ' . $e->getMessage()];
 		}
 	}
 }

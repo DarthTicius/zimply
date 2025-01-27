@@ -19,6 +19,7 @@ class Database
 				$_ENV['DB_USER'],
 				$_ENV['DB_PASSWORD']
 			);
+			$this->pdo->exec("SET time_zone = '+02:00'");
 
 			$this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 			$this->pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);

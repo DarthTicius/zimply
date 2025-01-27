@@ -11,7 +11,7 @@
 	<h2>Reset Password</h2>
 	<form action="/reset-password/confirm" method="POST" enctype="multipart/form-data">
 		<input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf_token) ?>">
-		<input type="hidden" name="token" value="<?php echo htmlspecialchars($reset_token) ?>">
+		<input type="hidden" name="token" value="<?php echo htmlspecialchars($_GET['token'] ?? $reset_token) ?>">
 
 		<div class="form-group">
 			<label for="password">New Password:</label>

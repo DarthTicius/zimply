@@ -19,19 +19,12 @@ class AuthController
 
 	public function __construct()
 	{
-
+		date_default_timezone_set('Europe/Berlin'); // Ensure the time zone is set correctly
 		$this->ensureSessionStarted();
 		$this->authService = new AuthService();
 		$this->securityService = new SecurityService();
 	}
 
-	public function getCsrfToken(): void
-	{
-		header('Content-Type: application/json');
-		echo json_encode([
-			'csrf_token' => $this->securityService->generateCsrfToken()
-		]);
-	}
 	private function getRequestData(): array
 	{
 		$contentType = $_SERVER['CONTENT_TYPE'] ?? '';
@@ -48,37 +41,28 @@ class AuthController
 		$this->ensureSessionStarted();
 		$_SESSION[$type] = $message;
 
-		// Debugging logs
-		error_log("Redirecting to: $path with message: $message");
-
 		header("Location: $path");
 		exit;
 	}
 
-
 	public function register(): void
 	{
 		$data = $this->getRequestData();
-		error_log('Register data: ' . print_r($data, true));  // Debug without output
 		if (!$this->securityService->checkRateLimit($_SERVER['REMOTE_ADDR'], 'register')) {
 			$this->redirectWithMessage('/register', 'Too many attempts. Please try again later.');
 		}
 
-
-		// Check if required fields exist
 		if (!isset($data['password']) || !isset($data['confirm_password'])) {
 			$this->redirectWithMessage('/register', 'Password fields are required');
 			return;
 		}
 
-		// Additional validation for form submission
 		if ($data['password'] !== $data['confirm_password']) {
 			$this->redirectWithMessage('/register', 'Passwords do not match');
 			return;
 		}
 
 		$result = $this->authService->register($data);
-		// var_dump($result);
 		if (isset($result['error'])) {
 			$this->redirectWithMessage('/register', $result['error']);
 		}
@@ -93,8 +77,6 @@ class AuthController
 		}
 
 		$data = $this->getRequestData();
-
-		error_log('Login data: ' . print_r($data, true));
 
 		$result = $this->authService->login($data);
 
@@ -132,9 +114,6 @@ class AuthController
 	{
 		$data = $this->getRequestData();
 
-		// Log the received data for debugging
-		error_log('Reset password data: ' . print_r($data, true));
-
 		if (empty($data['csrf_token']) || !$this->securityService->validateCsrfToken($data['csrf_token'])) {
 			$this->redirectWithMessage(
 				'/reset-password/confirm?token=' . ($data['token'] ?? ''),
@@ -171,6 +150,11 @@ class AuthController
 		$_SESSION = [];
 		session_destroy();
 
-		$this->redirectWithMessage('/login', 'You have been logged out.', 'success');
+		$this->ensureSessionStarted();
+		$_SESSION['success'] = 'You have been logged out successfully.';
+
+		header('Content-Type: application/json');
+		echo json_encode(['message' => 'Logged out successfully']);
+		exit;
 	}
 }

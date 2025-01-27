@@ -18,26 +18,26 @@ class SecurityService
 
 	public function generateCsrfToken(): string
 	{
-		$token = bin2hex(random_bytes(32));
-		$stmt = $this->db->prepare("INSERT INTO csrf_tokens (token) VALUES (?)");
-		$stmt->execute([$token]);
-		return $token;
+		if (session_status() === PHP_SESSION_NONE) {
+			session_start();
+		}
+
+		if (empty($_SESSION['csrf_token'])) {
+			$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+		}
+
+		return $_SESSION['csrf_token'];
 	}
 
 	public function validateCsrfToken(string $token): bool
 	{
+		if (session_status() === PHP_SESSION_NONE) {
+			session_start();
+		}
 
-		$stmt = $this->db->prepare("
-        SELECT COUNT(*) as token_count 
-        FROM csrf_tokens 
-        WHERE token = ? 
-        AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-    ");
-		$stmt->execute([$token]);
-		$result = $stmt->fetch();
-
-		return $result['token_count'] > 0;
+		return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
 	}
+
 	public function invalidateOldCsrfTokens(): void
 	{
 		$stmt = $this->db->prepare("DELETE FROM csrf_tokens WHERE created_at < NOW() - INTERVAL 1 HOUR");
