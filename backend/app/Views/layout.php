@@ -164,5 +164,23 @@ $faviconPath = $basePath . 'favicon.ico';
 			localStorage.removeItem('redirectMessage');
 			localStorage.removeItem('redirectMessageType');
 		}
+
+		const logoutLink = document.getElementById('logout-link');
+		if (logoutLink) {
+			logoutLink.addEventListener('click', function(event) {
+				event.preventDefault();
+				fetch('/logout', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					credentials: 'same-origin'
+				}).then(response => {
+					if (response.ok) {
+						window.location.href = '/login';
+					}
+				});
+			});
+		}
 	});
 </script>
