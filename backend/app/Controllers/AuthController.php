@@ -97,11 +97,11 @@ class AuthController
 
 		$result = $this->authService->initiatePasswordReset($this->getRequestData());
 
-		// In a real application, you would send an email with the reset link
-		// For testing, we'll redirect with the token in the URL
+		// Simulate email sending by redirecting with the token in the URL
 		if (isset($result['debug_token'])) {
+			$encodedToken = urlencode($result['debug_token']);
 			$this->redirectWithMessage(
-				"/reset-password/confirm?token={$result['debug_token']}",
+				"/reset-password/confirm?token={$encodedToken}",
 				'Please check your email for the reset link.',
 				'success'
 			);
@@ -116,7 +116,7 @@ class AuthController
 
 		if (empty($data['csrf_token']) || !$this->securityService->validateCsrfToken($data['csrf_token'])) {
 			$this->redirectWithMessage(
-				'/reset-password/confirm?token=' . ($data['token'] ?? ''),
+				'/reset-password/confirm?token=' . urlencode(trim(urldecode($data['token'] ?? ''))),
 				'Invalid CSRF token'
 			);
 		}
@@ -127,7 +127,7 @@ class AuthController
 
 		if (empty($data['password']) || $data['password'] !== ($data['confirm_password'] ?? '')) {
 			$this->redirectWithMessage(
-				'/reset-password/confirm?token=' . ($data['token'] ?? ''),
+				'/reset-password/confirm?token=' . urlencode(trim(urldecode($data['token'] ?? ''))),
 				'Passwords do not match or are empty'
 			);
 		}
@@ -136,7 +136,7 @@ class AuthController
 
 		if (isset($result['error'])) {
 			$this->redirectWithMessage(
-				'/reset-password/confirm?token=' . ($data['token'] ?? ''),
+				'/reset-password/confirm?token=' . urlencode(trim(urldecode($data['token'] ?? ''))),
 				$result['error']
 			);
 		}

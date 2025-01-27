@@ -84,7 +84,7 @@ class AuthService
 				return ['message' => 'If the email exists, a reset link will be sent'];
 			}
 
-			$resetToken = bin2hex(random_bytes(32));
+			$resetToken = urlencode(bin2hex(random_bytes(32)));
 			$resetTokenExpiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
 			$stmt = $this->db->prepare("
@@ -113,7 +113,7 @@ class AuthService
 
 	public function resetPassword(array $data): array
 	{
-		$token = $data['token'];
+		$token = trim(urldecode($data['token']));
 		$newPassword = password_hash($data['password'], PASSWORD_BCRYPT);
 
 		try {
