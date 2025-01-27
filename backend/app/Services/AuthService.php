@@ -117,33 +117,17 @@ class AuthService
 		$newPassword = password_hash($data['password'], PASSWORD_BCRYPT);
 
 		try {
-			// check the token and expiry with explicit timezone handling
 			$checkStmt = $this->db->prepare("
-            SELECT 
-                reset_token,
-                reset_token_expiry,
-                UNIX_TIMESTAMP(reset_token_expiry) as expiry_ts,
-                UNIX_TIMESTAMP(NOW()) as current_ts,
-                TIMESTAMPDIFF(SECOND, NOW(), reset_token_expiry) as seconds_remaining
+            SELECT reset_token, reset_token_expiry 
             FROM users 
-            WHERE reset_token = :token
+            WHERE reset_token = :token 
+            AND reset_token_expiry > CONVERT_TZ(NOW(), @@session.time_zone, '+00:00')
         ");
 			$checkStmt->execute([':token' => $token]);
 			$tokenData = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
 			if (!$tokenData) {
-				return ['error' => 'No user found with the provided reset token.'];
-			}
-
-			// check MySQL's timezone settings
-			$tzStmt = $this->db->query("SELECT @@time_zone, @@system_time_zone");
-			$tzInfo = $tzStmt->fetch(PDO::FETCH_ASSOC);
-			error_log("MySQL timezone settings: " . json_encode($tzInfo));
-
-			// Compare using seconds_remaining instead of timestamps
-			if ($tokenData['seconds_remaining'] <= 0) {
-				error_log("Token expired - Seconds remaining: {$tokenData['seconds_remaining']}");
-				return ['error' => 'The reset token has expired.'];
+				return ['error' => 'Invalid or expired reset token.'];
 			}
 
 			$updateStmt = $this->db->prepare("
@@ -153,7 +137,6 @@ class AuthService
                 reset_token = NULL,
                 reset_token_expiry = NULL
             WHERE reset_token = :token
-            AND reset_token_expiry > NOW()
         ");
 
 			$updateStmt->execute([
