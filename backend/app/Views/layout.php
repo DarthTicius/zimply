@@ -33,6 +33,14 @@ $faviconPath = $basePath . 'favicon.ico';
 			padding: 20px;
 		}
 
+		.alert.alert-success {
+			background-color: #28a745;
+			color: white;
+			padding: 10px;
+			margin-bottom: 10px;
+			border-radius: 4px;
+		}
+
 		@media (min-width: 768px) and (max-width: 1023px) {
 			.container {
 				max-width: 700px;
@@ -120,7 +128,11 @@ $faviconPath = $basePath . 'favicon.ico';
 
 <body>
 	<div class="nav">
-		<a href="/login">Login</a>
+		<?php if (isset($_SESSION['user'])) { ?>
+			<a href="#" id="logout-link">Logout</a>
+		<?php } else { ?>
+			<a href="/login">Login</a>
+		<?php } ?>
 		<a href="/register">Register</a>
 		<a href="/reset-password">Reset Password</a>
 	</div>
