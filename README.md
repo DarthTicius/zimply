@@ -7,7 +7,7 @@ git clone https://github.com/DarthTicius/zimply.git
 # For backend (auth):
 1. Navigate to the project directory:
 ```sh
-cd zimply-backend
+cd backend
 ```
 
 2.Install the dependencies:
